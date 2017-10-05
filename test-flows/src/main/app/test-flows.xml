@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+
+    <flow name="negativeFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/negative" doc:name="HTTP"/>
+        <set-variable variableName="status" value="-99" doc:name="Variable"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.status == -99]">
+                <logger message="Value is -99" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <logger message="Value is not -99" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="exceptionFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/exception" doc:name="HTTP"/>
+        <scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy"><![CDATA[throw new java.lang.NullPointerException();]]></scripting:script>
+        </scripting:component>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="#[exception.message]" doc:name="Set Payload"/>
+            <logger message="#[exception]" level="INFO" doc:name="Logger"/>
+        </catch-exception-strategy>
+    </flow>
+    
+    <flow name="formatDateFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/format" doc:name="HTTP"/>
+        <set-variable variableName="inputDate" value="2017-08-31" doc:name="Variable"/>
+        <set-variable variableName="inputDate2" value="#[null]" doc:name="Variable"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	outputDate1: (flowVars.inputDate when (flowVars.inputDate == null or flowVars.inputDate == '')
+		otherwise flowVars.inputDate as :date {format: "yyyy-MM-dd"} as :string
+	),
+	outputDate2: flowVars.inputDate2 as :date {format: "yyyy-MM-dd"} as :string when (flowVars.inputDate2 != null)
+		otherwise null
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    
+    <flow name="listFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/list" allowedMethods="GET" doc:name="HTTP"/>
+        <set-variable variableName="list" value="#[new java.util.ArrayList()]" doc:name="Variable"/>
+        <expression-transformer expression="#[flowVars.list.add('String1')]" doc:name="Expression"/>
+        <expression-transformer expression="#[flowVars.list.add('String2')]" doc:name="Expression"/>
+        <logger message="#[flowVars.list.size()]" level="INFO" doc:name="Logger"/>
+        <flow-ref name="formatMessageFlow" doc:name="formatMessageFlow"/>
+        <logger message="message = #[flowVars.message]" level="INFO" doc:name="Logger"/>
+        <set-payload value="{ size: #[flowVars.list.size()] }" doc:name="Set Payload"/>
+    </flow>
+    
+    <sub-flow name="formatMessageFlow">
+        <set-variable variableName="message" value="#[&quot;&quot;]" doc:name="Variable"/>
+        <foreach collection="#[flowVars.list]" doc:name="For Each">
+            <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            <set-variable variableName="message" value="#[flowVars.message.concat(payload.concat(&quot;\n&quot;))]" doc:name="Variable"/>
+        </foreach>
+    </sub-flow>
+</mule>
