@@ -71,7 +71,7 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <sub-flow name="formatMessageFlow">
         <set-variable variableName="message" value="#[&quot;&quot;]" doc:name="Variable"/>
         <foreach collection="#[flowVars.list]" doc:name="For Each">
-            <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            <logger message="Payload = #[payload]" level="INFO" doc:name="Logger"/>
             <set-variable variableName="message" value="#[flowVars.message.concat(payload.concat(&quot;\n&quot;))]" doc:name="Variable"/>
         </foreach>
     </sub-flow>
